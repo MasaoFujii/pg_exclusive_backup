@@ -1,0 +1,13 @@
+CREATE EXTENSION pg_exclusive_backup;
+SELECT pg_start_backup('test');
+ pg_start_backup 
+-----------------
+ 0/0
+(1 row)
+
+SELECT pg_stop_backup();
+ pg_stop_backup 
+----------------
+ 0/0
+(1 row)
+

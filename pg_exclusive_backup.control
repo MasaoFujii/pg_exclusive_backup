@@ -1,0 +1,6 @@
+# pg_exclusive_backup extension
+comment = 'provides functions for exclusive backup'
+default_version = '1.0'
+module_pathname = '$libdir/pg_exclusive_backup'
+relocatable = false
+schema = pg_catalog
