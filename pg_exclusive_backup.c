@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_exclusive_backup.c
- *   provides functions for exclusive backup
+ *   provides functions for exclusive backup on PostgreSQL 15 or later
  *
  *-------------------------------------------------------------------------
  */

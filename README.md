@@ -1,9 +1,7 @@
 # pg_exclusive_backup
-This extension provides functions for exclusive backup on PostgreSQL.
+This extension provides functions for exclusive backup on PostgreSQL 15 or later.
 
 pg_exclusive_backup is released under the [PostgreSQL License](https://opensource.org/licenses/postgresql), a liberal Open Source license, similar to the BSD or MIT licenses.
-
-Note that pg_exclusive_backup requires PostgreSQL 15 or later.
 
 ## Install
 
@@ -23,6 +21,8 @@ The path to [pg_config](http://www.postgresql.org/docs/devel/static/app-pgconfig
 needs be specified in PG_CONFIG.
 However, if the PATH environment variable contains the path to pg_config,
 PG_CONFIG doesn't need to be specified.
+
+Note that pg_exclusive_backup requires PostgreSQL 15 or later.
 
 ## Functions
 

@@ -5,7 +5,7 @@ OBJS = \
 
 EXTENSION = pg_exclusive_backup
 DATA = pg_exclusive_backup--1.0.sql
-PGFILEDESC = "pg_exclusive_backup - provides functions for exclusive backup"
+PGFILEDESC = "pg_exclusive_backup - provides functions for exclusive backup on PostgreSQL 15 or later"
 
 REGRESS = pg_exclusive_backup
 
