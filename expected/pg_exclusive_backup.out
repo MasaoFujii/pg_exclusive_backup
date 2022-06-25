@@ -1,13 +1,14 @@
 CREATE EXTENSION pg_exclusive_backup;
-SELECT pg_start_backup('test');
- pg_start_backup 
------------------
- 0/0
+SELECT 1 FROM pg_start_backup('test', true);
+ ?column? 
+----------
+        1
 (1 row)
 
-SELECT pg_stop_backup();
- pg_stop_backup 
-----------------
- 0/0
+SELECT 1 FROM pg_stop_backup();
+NOTICE:  all required WAL segments have been archived
+ ?column? 
+----------
+        1
 (1 row)
 
