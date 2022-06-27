@@ -11,13 +11,17 @@ SELECT pg_is_in_backup();
  t
 (1 row)
 
+-- Suppress NOTICE message about WAL archiving that pg_stop_backup()
+-- emits because its content can vary depending on WAL archiving
+-- configuration in the server.
+SET client_min_messages TO 'warning';
 SELECT 1 FROM pg_stop_backup();
-NOTICE:  all required WAL segments have been archived
  ?column? 
 ----------
         1
 (1 row)
 
+RESET client_min_messages;
 SELECT pg_is_in_backup();
  pg_is_in_backup 
 -----------------
