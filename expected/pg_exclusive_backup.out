@@ -5,10 +5,22 @@ SELECT 1 FROM pg_start_backup('test', true);
         1
 (1 row)
 
+SELECT pg_is_in_backup();
+ pg_is_in_backup 
+-----------------
+ t
+(1 row)
+
 SELECT 1 FROM pg_stop_backup();
 NOTICE:  all required WAL segments have been archived
  ?column? 
 ----------
         1
+(1 row)
+
+SELECT pg_is_in_backup();
+ pg_is_in_backup 
+-----------------
+ f
 (1 row)
 

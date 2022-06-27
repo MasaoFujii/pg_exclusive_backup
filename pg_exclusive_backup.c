@@ -19,6 +19,7 @@ PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(pg_start_backup);
 PG_FUNCTION_INFO_V1(pg_stop_backup);
+PG_FUNCTION_INFO_V1(pg_is_in_backup);
 
 static bool BackupInProgress(bool ignore_failure);
 static void ReadFileToStringInfo(const char *filename, StringInfo buf);
@@ -142,6 +143,15 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 	pfree(label_file.data);
 
 	PG_RETURN_LSN(stoppoint);
+}
+
+/*
+ * Returns true if an exclusive on-line backup is in progress.
+ */
+Datum
+pg_is_in_backup(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_BOOL(BackupInProgress(true));
 }
 
 /*

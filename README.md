@@ -51,3 +51,6 @@ This function also creates a backup history file in the write-ahead log archive 
 This function returns the pg_lsn result that holds the backup's ending write-ahead log location (which again can be ignored).
 
 This function is restricted to superusers by default, but other users can be granted EXECUTE to run the function.
+
+### boolean pg_is_in_backup()
+Returns true if an exclusive on-line backup is in progress.
