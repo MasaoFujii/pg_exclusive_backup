@@ -26,6 +26,8 @@ static bool BackupInProgress(bool ignore_failure);
 static bool ReadFileToStringInfo(const char *filename, StringInfo buf,
 								 bool missing_ok);
 static void WriteStringInfoToFile(const char *filename, StringInfo buf);
+static void ReplaceStringInfo(StringInfo buf, const char *replace,
+							  const char *replacement);
 
 /*
  * Set up for taking an exclusive on-line backup dump.
@@ -65,12 +67,17 @@ pg_start_backup(PG_FUNCTION_ARGS)
 	initStringInfo(&label_file);
 	initStringInfo(&tblspc_map_file);
 
-	/*
-	 * XXX BACKUP METHOD in the backup label that do_pg_backup_start()
-	 * returns is always "streamed" (not "pg_start_backup").
-	 */
 	startpoint = do_pg_backup_start(backupidstr, fast, NULL, &label_file,
 									NULL, &tblspc_map_file);
+
+	/*
+	 * Replace "BACKUP METHOD: streamed" with "... pg_start_backup"
+	 * in the backup label because an exclusive backup should use
+	 * "pg_start_backup" while do_pg_backup_start() always returns
+	 * "streamed".
+	 */
+	ReplaceStringInfo(&label_file, "BACKUP METHOD: streamed",
+					  "BACKUP METHOD: pg_start_backup");
 
 	/*
 	 * While executing do_pg_backup_start(), pg_start_backup() may be
@@ -280,4 +287,34 @@ WriteStringInfoToFile(const char *filename, StringInfo buf)
 		ereport(ERROR,
 				(errcode_for_file_access(),
 				 errmsg("could not write file \"%s\": %m", filename)));
+}
+
+/*
+ * Replace all occurrences of "replace" in "buf" with "replacement".
+ * The StringInfo will be suitably enlarged if necessary.
+ *
+ * Note: this is optimized on the assumption that most calls will find
+ * no more than one occurrence of "replace", and quite likely none.
+ */
+static void
+ReplaceStringInfo(StringInfo buf, const char *replace, const char *replacement)
+{
+	int			pos = 0;
+	char	   *ptr;
+
+	while ((ptr = strstr(buf->data + pos, replace)) != NULL)
+	{
+		/* Must copy the remainder of the string out of the StringInfo */
+		char	   *suffix = pstrdup(ptr + strlen(replace));
+
+		/* Truncate StringInfo at start of found string ... */
+		buf->len = ptr - buf->data;
+		/* ... and append the replacement (this restores the trailing '\0') */
+		appendStringInfoString(buf, replacement);
+		/* Next search should start after the replacement */
+		pos = buf->len;
+		/* Put back the remainder of the string */
+		appendStringInfoString(buf, suffix);
+		pfree(suffix);
+	}
 }
