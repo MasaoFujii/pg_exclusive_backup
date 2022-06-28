@@ -11,6 +11,12 @@ SELECT pg_is_in_backup();
  t
 (1 row)
 
+SELECT pg_backup_start_time() IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
 -- Suppress NOTICE message about WAL archiving that pg_stop_backup()
 -- emits because its content can vary depending on WAL archiving
 -- configuration in the server.
@@ -25,6 +31,12 @@ RESET client_min_messages;
 SELECT pg_is_in_backup();
  pg_is_in_backup 
 -----------------
+ f
+(1 row)
+
+SELECT pg_backup_start_time() IS NOT NULL;
+ ?column? 
+----------
  f
 (1 row)
 

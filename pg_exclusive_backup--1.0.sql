@@ -19,3 +19,8 @@ CREATE FUNCTION pg_catalog.pg_is_in_backup()
 RETURNS boolean
 AS 'MODULE_PATHNAME', 'pg_is_in_backup'
 LANGUAGE C VOLATILE STRICT;
+
+CREATE FUNCTION pg_catalog.pg_backup_start_time()
+RETURNS timestamp with time zone
+AS 'MODULE_PATHNAME', 'pg_backup_start_time'
+LANGUAGE C VOLATILE STRICT;

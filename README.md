@@ -54,3 +54,6 @@ This function is restricted to superusers by default, but other users can be gra
 
 ### boolean pg_is_in_backup()
 Returns true if an exclusive on-line backup is in progress.
+
+### timestamp with time zone pg_backup_start_time()
+Returns the start time of the current exclusive on-line backup if one is in progress, otherwise NULL.

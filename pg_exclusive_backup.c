@@ -20,9 +20,11 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(pg_start_backup);
 PG_FUNCTION_INFO_V1(pg_stop_backup);
 PG_FUNCTION_INFO_V1(pg_is_in_backup);
+PG_FUNCTION_INFO_V1(pg_backup_start_time);
 
 static bool BackupInProgress(bool ignore_failure);
-static void ReadFileToStringInfo(const char *filename, StringInfo buf);
+static bool ReadFileToStringInfo(const char *filename, StringInfo buf,
+								 bool missing_ok);
 static void WriteStringInfoToFile(const char *filename, StringInfo buf);
 
 /*
@@ -133,7 +135,7 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 				 errmsg("exclusive backup not in progress")));
 
 	initStringInfo(&label_file);
-	ReadFileToStringInfo(BACKUP_LABEL_FILE, &label_file);
+	ReadFileToStringInfo(BACKUP_LABEL_FILE, &label_file, false);
 
 	durable_unlink(BACKUP_LABEL_FILE, ERROR);
 	durable_unlink(TABLESPACE_MAP, DEBUG1);
@@ -152,6 +154,42 @@ Datum
 pg_is_in_backup(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_BOOL(BackupInProgress(true));
+}
+
+/*
+ * Returns start time of an online exclusive backup.
+ */
+Datum
+pg_backup_start_time(PG_FUNCTION_ARGS)
+{
+	Datum		xtime;
+	char		backup_start_time[30];
+	StringInfoData label_file;
+	char	   *ptr;
+
+	initStringInfo(&label_file);
+	if (!ReadFileToStringInfo(BACKUP_LABEL_FILE, &label_file, true))
+	{
+		pfree(label_file.data);
+		PG_RETURN_NULL();
+	}
+
+	/* Parse the START TIME line */
+	ptr = strstr(label_file.data, "START TIME:");
+	if (sscanf(ptr, "START TIME: %25[^\n]\n", backup_start_time) != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("invalid data in file \"%s\"", BACKUP_LABEL_FILE)));
+
+	/* Convert the time string read from file to TimestampTz form */
+	xtime = DirectFunctionCall3(timestamptz_in,
+								CStringGetDatum(backup_start_time),
+								ObjectIdGetDatum(InvalidOid),
+								Int32GetDatum(-1));
+
+	pfree(label_file.data);
+
+	PG_RETURN_DATUM(xtime);
 }
 
 /*
@@ -177,9 +215,12 @@ BackupInProgress(bool ignore_failure)
 
 /*
  * Read file to StringInfo.
+ *
+ * Return true if the specified file has been successfully read. Return false
+ * only when missing_ok is true and the specified file is missing.
  */
-static void
-ReadFileToStringInfo(const char *filename, StringInfo buf)
+static bool
+ReadFileToStringInfo(const char *filename, StringInfo buf, bool missing_ok)
 {
 	struct stat statbuf;
 	FILE	   *fp;
@@ -191,6 +232,9 @@ ReadFileToStringInfo(const char *filename, StringInfo buf)
 			ereport(ERROR,
 					(errcode_for_file_access(),
 					 errmsg("could not stat file \"%s\": %m", filename)));
+
+		if (missing_ok)
+			return false;
 		ereport(ERROR,
 				(errcode_for_file_access(),
 				 errmsg("could not read file \"%s\": %m", filename)));
@@ -210,6 +254,8 @@ ReadFileToStringInfo(const char *filename, StringInfo buf)
 		ereport(ERROR,
 				(errcode_for_file_access(),
 				 errmsg("could not read file \"%s\": %m", filename)));
+
+	return true;
 }
 
 /*
