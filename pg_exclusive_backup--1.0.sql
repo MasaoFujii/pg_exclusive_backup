@@ -24,3 +24,10 @@ CREATE FUNCTION pg_catalog.pg_backup_start_time()
 RETURNS timestamp with time zone
 AS 'MODULE_PATHNAME', 'pg_backup_start_time'
 LANGUAGE C VOLATILE STRICT;
+
+UPDATE pg_catalog.pg_proc SET oid = 999999999
+WHERE proname = 'pg_backup_start' AND prosrc = 'pg_backup_start' AND oid < 12000;
+DROP FUNCTION IF EXISTS pg_backup_start(text, boolean);
+UPDATE pg_catalog.pg_proc SET oid = 999999999
+WHERE proname = 'pg_backup_stop' AND prosrc = 'pg_backup_stop' AND oid < 12000;
+DROP FUNCTION IF EXISTS pg_backup_stop(boolean);

@@ -26,11 +26,13 @@ Note that pg_exclusive_backup requires PostgreSQL 15 or later.
 
 ## Functions
 
-Note that **CREATE EXTENSION pg_exclusive_backup** needs to be executed
+**CREATE EXTENSION pg_exclusive_backup** needs to be executed
 in all the databases that you want to execute the functions that
 this extension provides.
 
     =# CREATE EXTENSION pg_exclusive_backup;
+
+Note that this CREATE EXTENSION command drops the built-in functions for non-exclusive backup, pg_backup_start and pg_backup_stop, from the database where the command is executed on. Those function remain dropped and unavailable in that database even after pg_exclusive_backup is removed from there by DROP EXTENSION command. To use them for non-exclusive backups, you need to connect to other databases where pg_exclusive_backup has never been installed on yet.
 
 These functions cannot be executed during recovery.
 

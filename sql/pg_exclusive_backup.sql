@@ -13,3 +13,6 @@ RESET client_min_messages;
 
 SELECT pg_is_in_backup();
 SELECT pg_backup_start_time() IS NOT NULL;
+
+SELECT pg_backup_start('test', true);
+SELECT pg_backup_stop(false);
