@@ -3,6 +3,9 @@
  * pg_exclusive_backup.c
  *   provides functions for exclusive backup on PostgreSQL 15 or later
  *
+ * Portions Copyright (c) 2022, Fujii Masao
+ * Portions Copyright (c) 1996-2022, PostgreSQL Global Development Group
+ *
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
