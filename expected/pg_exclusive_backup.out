@@ -28,6 +28,8 @@ SELECT 1 FROM pg_stop_backup();
 (1 row)
 
 RESET client_min_messages;
+SELECT 1 FROM pg_stop_backup();
+ERROR:  exclusive backup not in progress
 SELECT pg_is_in_backup();
  pg_is_in_backup 
 -----------------

@@ -11,6 +11,7 @@ SET client_min_messages TO 'warning';
 SELECT 1 FROM pg_stop_backup();
 RESET client_min_messages;
 
+SELECT 1 FROM pg_stop_backup();
 SELECT pg_is_in_backup();
 SELECT pg_backup_start_time() IS NOT NULL;
 
