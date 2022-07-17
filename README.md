@@ -69,3 +69,33 @@ An exclusive backup should be avoided because this type of backup can only be ta
 There are some differences an exclusive backup available in PostgreSQL 14 or before and one that pg_exclusive_backup provides.
 
 In PostgreSQL 15 or later with pg_exclusive_backup, while the exclusive backup is in progress, whatever shutdown mode is, any shutdown request causes the server to shut down without removing backup_label and tablespace_map files. Those files must be removed manually from the database cluster before restarting the server. Otherwise the server restart may fail. Also smart shutdown does NOT make the server additionally wait and allow new connections until the exclusive backup is no longer active.
+
+## Steps to take a backup
+
+1. Ensure that WAL archiving is enabled and working.
+
+2. Connect to the database where pg_exclusive_backup is installed on as a user with rights to run pg_start_backup (superuser, or a user who has been granted EXECUTE on the function) and issue the command:
+   ```
+   SELECT pg_start_backup('label');
+   ```
+   where ```label``` is any string you want to use to uniquely identify this backup operation. pg_start_backup creates a backup label file, called backup_label, in the cluster directory with information about your backup, including the start time and label string. The function also creates a tablespace map file, called tablespace_map, in the cluster directory with information about tablespace symbolic links in pg_tblspc/ if one or more such link is present. Both files are critical to the integrity of the backup, should you need to restore from it.
+
+   By default, pg_start_backup can take a long time to finish. This is because it performs a checkpoint, and the I/O required for the checkpoint will be spread out over a significant period of time, by default half your inter-checkpoint interval (see checkpoint_completion_target). This is usually what you want, because it minimizes the impact on query processing. If you want to start the backup as soon as possible, use:
+   ```
+   SELECT pg_start_backup('label', true);
+   ```
+   This forces the checkpoint to be done as quickly as possible.
+
+3. Perform the backup, using any convenient file-system-backup tool such as tar or cpio (not pg_dump or pg_dumpall.  It is neither necessary nor desirable to stop normal operation of the database while you do this. See [here](https://www.postgresql.org/docs/devel/continuous-archiving.html#BACKUP-LOWLEVEL-BASE-BACKUP-DATA) for things to consider during this backup.
+
+   As noted above, if the server crashes during the backup it may not be possible to restart until the backup_label file has been manually deleted from the $PGDATA directory.  Note that it is very important to never remove the backup_label file when restoring a backup, because this will result in corruption. Confusion about when it is appropriate to remove this file is a common cause of data corruption when using this method; be very certain that you remove the file only on an existing primary and never when building a standby or restoring a backup, even if you are building a standby that will subsequently be promoted to a new primary.
+
+4. Again connect to the database where pg_exclusive_backup is installed on as a user with rights to run pg_stop_backup (superuser, or a user who has been granted EXECUTE on the function), and issue the command:
+   ```
+   SELECT pg_stop_backup();
+   ```
+   This function terminates backup mode and performs an automatic switch to the next WAL segment. The reason for the switch is to arrange for the last WAL segment written during the backup interval to be ready to archive.
+
+5. Once the WAL segment files active during the backup are archived, you are done. The file identified by pg_stop_backup's result is the last segment that is required to form a complete set of backup files. If archive_mode is enabled, pg_stop_backup does not return until the last segment has been archived. Archiving of these files happens automatically since you have already configured archive_command or archive_library. In most cases this happens quickly, but you are advised to monitor your archive system to ensure there are no delays. If the archive process has fallen behind because of failures of the archive command or archive library, it will keep retrying until the archive succeeds and the backup is complete.
+
+   When using exclusive backup mode, it is absolutely imperative to ensure that pg_stop_backup completes successfully at the end of the backup. Even if the backup itself fails, for example due to lack of disk space, failure to call pg_stop_backup will leave the server in backup mode indefinitely, causing future backups to fail and increasing the risk of a restart failure during the time that backup_label exists.
