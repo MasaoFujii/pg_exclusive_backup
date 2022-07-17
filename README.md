@@ -59,3 +59,13 @@ Returns true if an exclusive on-line backup is in progress.
 
 ### timestamp with time zone pg_backup_start_time()
 Returns the start time of the current exclusive on-line backup if one is in progress, otherwise NULL.
+
+## Notes
+
+It's recommended that a non-exclusive backup is used unless you have special reason why an exclusive backup needs to be used. Before using pg_exclusive_backup, you should understand the reasons why an exclusive backup was marked deprecated in PostgreSQL 9.6 and eventually removed in 15.
+
+An exclusive backup should be avoided because this type of backup can only be taken on a primary server and does not allow concurrent. Moreover, because it creates a backup label file, which can block restart of the primary server after a crash. On the other hand, the erroneous removal of this file from a backup or standby server is a common mistake, which can result in serious data corruption.
+
+There are some differences an exclusive backup available in PostgreSQL 14 or before and one that pg_exclusive_backup provides.
+
+In PostgreSQL 15 or later with pg_exclusive_backup, while the exclusive backup is in progress, whatever shutdown mode is, any shutdown request causes the server to shut down without removing backup_label and tablespace_map files. Those files must be removed manually from the database cluster before restarting the server. Otherwise the server restart may fail. Also smart shutdown does NOT make the server additionally wait and allow new connections until the exclusive backup is no longer active.
