@@ -21,7 +21,7 @@
 #if PG_VERSION_NUM >= 160000
 #include "access/xlog_internal.h"
 #include "utils/timestamp.h"
-#endif	/* PG_VERSION_NUM >= 160000 */
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 PG_MODULE_MAGIC;
 
@@ -39,7 +39,7 @@ static void ReplaceStringInfo(StringInfo buf, const char *replace,
 
 #if PG_VERSION_NUM >= 160000
 static void ParseBackupLabelToState(BackupState *state, char *backup_label);
-#endif	/* PG_VERSION_NUM >= 160000 */
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 /*
  * Set up for taking an exclusive on-line backup dump.
@@ -64,9 +64,9 @@ pg_start_backup(PG_FUNCTION_ARGS)
 	StringInfoData tblspc_map_file;
 
 #if PG_VERSION_NUM >= 160000
-	BackupState	*backup_state;
-	char		*backup_label;
-#endif	/* PG_VERSION_NUM >= 160000 */
+	BackupState *backup_state;
+	char	   *backup_label;
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 	if (RecoveryInProgress())
 		ereport(ERROR,
@@ -101,21 +101,20 @@ pg_start_backup(PG_FUNCTION_ARGS)
 	startpoint = do_pg_backup_start(backupidstr, fast, NULL, &label_file,
 									NULL, &tblspc_map_file);
 
-#endif	/* PG_VERSION_NUM >= 160000 */
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 	/*
-	 * Replace "BACKUP METHOD: streamed" with "... pg_start_backup"
-	 * in the backup label because an exclusive backup should use
-	 * "pg_start_backup" while do_pg_backup_start() always returns
-	 * "streamed".
+	 * Replace "BACKUP METHOD: streamed" with "... pg_start_backup" in the
+	 * backup label because an exclusive backup should use "pg_start_backup"
+	 * while do_pg_backup_start() always returns "streamed".
 	 */
 	ReplaceStringInfo(&label_file, "BACKUP METHOD: streamed",
 					  "BACKUP METHOD: pg_start_backup");
 
 	/*
-	 * While executing do_pg_backup_start(), pg_start_backup() may be
-	 * called by different session. To handle this case, confirm that
-	 * exclusive backup not in progress before creating backup_label file.
+	 * While executing do_pg_backup_start(), pg_start_backup() may be called
+	 * by different session. To handle this case, confirm that exclusive
+	 * backup not in progress before creating backup_label file.
 	 */
 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);
 
@@ -125,8 +124,8 @@ pg_start_backup(PG_FUNCTION_ARGS)
 				 errmsg("exclusive backup is already in progress")));
 
 	/*
-	 * XXX backup_label file may remain unexpectedly when tablespace_map
-	 * file fails to be created and pg_start_backup() reports an error.
+	 * XXX backup_label file may remain unexpectedly when tablespace_map file
+	 * fails to be created and pg_start_backup() reports an error.
 	 */
 	WriteStringInfoToFile(BACKUP_LABEL_FILE, &label_file);
 	if (tblspc_map_file.len > 0)
@@ -164,8 +163,8 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 	StringInfoData label_file;
 
 #if PG_VERSION_NUM >= 160000
-	BackupState	*backup_state;
-#endif	/* PG_VERSION_NUM >= 160000 */
+	BackupState *backup_state;
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 	if (RecoveryInProgress())
 		ereport(ERROR,
@@ -196,7 +195,7 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 #else
 	stoppoint = do_pg_backup_stop(label_file.data, waitforarchive, NULL);
 
-#endif	/* PG_VERSION_NUM >= 160000 */
+#endif							/* PG_VERSION_NUM >= 160000 */
 
 	pfree(label_file.data);
 
@@ -377,10 +376,10 @@ ParseBackupLabelToState(BackupState *state, char *backup_label)
 {
 	char		strfbuf[128];
 	char		xlogfilename[MAXFNAMELEN];
-	char		*ptr;
+	char	   *ptr;
 	uint32		hi,
-		lo;
-	TimestampTz	ts;
+				lo;
+	TimestampTz ts;
 
 	ptr = backup_label;
 	if (!ptr || sscanf(ptr, "START WAL LOCATION: %X/%X (file %24s)\n",
@@ -427,4 +426,4 @@ fail:
 			(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 			 errmsg("invalid data in file \"%s\"", BACKUP_LABEL_FILE)));
 }
-#endif	/* PG_VERSION_NUM >= 160000 */
+#endif							/* PG_VERSION_NUM >= 160000 */
