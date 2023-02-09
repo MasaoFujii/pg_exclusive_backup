@@ -18,6 +18,11 @@
 #include "utils/builtins.h"
 #include "utils/pg_lsn.h"
 
+#if PG_VERSION_NUM >= 160000
+#include "access/xlog_internal.h"
+#include "utils/timestamp.h"
+#endif	/* PG_VERSION_NUM >= 160000 */
+
 PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(pg_start_backup);
@@ -31,6 +36,10 @@ static bool ReadFileToStringInfo(const char *filename, StringInfo buf,
 static void WriteStringInfoToFile(const char *filename, StringInfo buf);
 static void ReplaceStringInfo(StringInfo buf, const char *replace,
 							  const char *replacement);
+
+#if PG_VERSION_NUM >= 160000
+static void ParseBackupLabelToState(BackupState *state, char *backup_label);
+#endif	/* PG_VERSION_NUM >= 160000 */
 
 /*
  * Set up for taking an exclusive on-line backup dump.
@@ -54,6 +63,11 @@ pg_start_backup(PG_FUNCTION_ARGS)
 	StringInfoData label_file;
 	StringInfoData tblspc_map_file;
 
+#if PG_VERSION_NUM >= 160000
+	BackupState	*backup_state;
+	char		*backup_label;
+#endif	/* PG_VERSION_NUM >= 160000 */
+
 	if (RecoveryInProgress())
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -70,8 +84,24 @@ pg_start_backup(PG_FUNCTION_ARGS)
 	initStringInfo(&label_file);
 	initStringInfo(&tblspc_map_file);
 
+#if PG_VERSION_NUM >= 160000
+	backup_state = (BackupState *) palloc0(sizeof(BackupState));
+
+	do_pg_backup_start(backupidstr, fast, NULL, backup_state,
+					   &tblspc_map_file);
+	startpoint = backup_state->startpoint;
+
+	backup_label = build_backup_content(backup_state, false);
+	appendStringInfoString(&label_file, backup_label);
+
+	pfree(backup_state);
+	pfree(backup_label);
+
+#else
 	startpoint = do_pg_backup_start(backupidstr, fast, NULL, &label_file,
 									NULL, &tblspc_map_file);
+
+#endif	/* PG_VERSION_NUM >= 160000 */
 
 	/*
 	 * Replace "BACKUP METHOD: streamed" with "... pg_start_backup"
@@ -133,6 +163,10 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 	XLogRecPtr	stoppoint;
 	StringInfoData label_file;
 
+#if PG_VERSION_NUM >= 160000
+	BackupState	*backup_state;
+#endif	/* PG_VERSION_NUM >= 160000 */
+
 	if (RecoveryInProgress())
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -150,7 +184,19 @@ pg_stop_backup(PG_FUNCTION_ARGS)
 	durable_unlink(BACKUP_LABEL_FILE, ERROR);
 	durable_unlink(TABLESPACE_MAP, DEBUG1);
 
+#if PG_VERSION_NUM >= 160000
+	backup_state = (BackupState *) palloc0(sizeof(BackupState));
+	ParseBackupLabelToState(backup_state, label_file.data);
+
+	do_pg_backup_stop(backup_state, waitforarchive);
+	stoppoint = backup_state->stoppoint;
+
+	pfree(backup_state);
+
+#else
 	stoppoint = do_pg_backup_stop(label_file.data, waitforarchive, NULL);
+
+#endif	/* PG_VERSION_NUM >= 160000 */
 
 	pfree(label_file.data);
 
@@ -321,3 +367,64 @@ ReplaceStringInfo(StringInfo buf, const char *replace, const char *replacement)
 		pfree(suffix);
 	}
 }
+
+#if PG_VERSION_NUM >= 160000
+/*
+ * Parse contents of backup_label file to build the backup state.
+ */
+static void
+ParseBackupLabelToState(BackupState *state, char *backup_label)
+{
+	char		strfbuf[128];
+	char		xlogfilename[MAXFNAMELEN];
+	char		*ptr;
+	uint32		hi,
+		lo;
+	TimestampTz	ts;
+
+	ptr = backup_label;
+	if (!ptr || sscanf(ptr, "START WAL LOCATION: %X/%X (file %24s)\n",
+					   &hi, &lo, xlogfilename) != 3)
+		goto fail;
+	state->startpoint = ((uint64) hi) << 32 | lo;
+	ptr = strchr(ptr, '\n') + 1;	/* %n is not portable enough */
+
+	if (!ptr || sscanf(ptr, "CHECKPOINT LOCATION: %X/%X\n",
+					   &hi, &lo) != 2)
+		goto fail;
+	state->checkpointloc = ((uint64) hi) << 32 | lo;
+	ptr = strchr(ptr, '\n') + 1;
+
+	if (!ptr || sscanf(ptr, "BACKUP METHOD: %s\n", strfbuf) != 1)
+		goto fail;
+	ptr = strchr(ptr, '\n') + 1;
+
+	if (!ptr || sscanf(ptr, "BACKUP FROM: %s\n", strfbuf) != 1)
+		goto fail;
+	state->started_in_recovery = (strcmp(strfbuf, "standby") == 0);
+	ptr = strchr(ptr, '\n') + 1;
+
+	if (!ptr || sscanf(ptr, "START TIME: %s\n", strfbuf) != 1)
+		goto fail;
+	ts = DirectFunctionCall3(timestamptz_in,
+							 CStringGetDatum(strfbuf),
+							 ObjectIdGetDatum(InvalidOid),
+							 Int32GetDatum(-1));
+	state->starttime = timestamptz_to_time_t(ts);
+	ptr = strchr(ptr, '\n') + 1;
+
+	if (!ptr || sscanf(ptr, "LABEL: %s\n", state->name) != 1)
+		goto fail;
+	ptr = strchr(ptr, '\n') + 1;
+
+	if (!ptr || sscanf(ptr, "START TIMELINE: %u\n", &(state->starttli)) != 1)
+		goto fail;
+
+	return;
+
+fail:
+	ereport(ERROR,
+			(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+			 errmsg("invalid data in file \"%s\"", BACKUP_LABEL_FILE)));
+}
+#endif	/* PG_VERSION_NUM >= 160000 */
